@@ -26,14 +26,14 @@ const (
 	fanMarkAdd    = 0x00000001
 	fanMarkRemove = 0x00000002
 
-	// Fanotify event masks
-	fanModify     = 0x00000002
-	fanCloseWrite = 0x00000008
-	fanCreate     = 0x00000100
-	fanDelete     = 0x00000200
-	fanMovedFrom  = 0x00000040
-	fanMovedTo    = 0x00000080
-	fanAccess     = 0x00000001
+	// Fanotify event masks (uint64 for bitwise operations)
+	fanModify     = uint64(0x00000002)
+	fanCloseWrite = uint64(0x00000008)
+	fanCreate     = uint64(0x00000100)
+	fanDelete     = uint64(0x00000200)
+	fanMovedFrom  = uint64(0x00000040)
+	fanMovedTo    = uint64(0x00000080)
+	fanAccess     = uint64(0x00000001)
 )
 
 // Fanotify constants - use syscall constants when available, fallback otherwise
@@ -43,17 +43,24 @@ var (
 	O_RDONLY          = getConstant("O_RDONLY", oRdonly)
 	FAN_MARK_ADD      = getConstant("FAN_MARK_ADD", fanMarkAdd)
 	FAN_MARK_REMOVE   = getConstant("FAN_MARK_REMOVE", fanMarkRemove)
-	FAN_MODIFY        = getConstant("FAN_MODIFY", fanModify)
-	FAN_CLOSE_WRITE   = getConstant("FAN_CLOSE_WRITE", fanCloseWrite)
-	FAN_CREATE        = getConstant("FAN_CREATE", fanCreate)
-	FAN_DELETE        = getConstant("FAN_DELETE", fanDelete)
-	FAN_MOVED_FROM    = getConstant("FAN_MOVED_FROM", fanMovedFrom)
-	FAN_MOVED_TO      = getConstant("FAN_MOVED_TO", fanMovedTo)
-	FAN_ACCESS        = getConstant("FAN_ACCESS", fanAccess)
+	FAN_MODIFY        = getConstant64("FAN_MODIFY", fanModify)
+	FAN_CLOSE_WRITE   = getConstant64("FAN_CLOSE_WRITE", fanCloseWrite)
+	FAN_CREATE        = getConstant64("FAN_CREATE", fanCreate)
+	FAN_DELETE        = getConstant64("FAN_DELETE", fanDelete)
+	FAN_MOVED_FROM    = getConstant64("FAN_MOVED_FROM", fanMovedFrom)
+	FAN_MOVED_TO      = getConstant64("FAN_MOVED_TO", fanMovedTo)
+	FAN_ACCESS        = getConstant64("FAN_ACCESS", fanAccess)
 )
 
 // getConstant safely retrieves syscall constants with fallback
 func getConstant(name string, fallback uint) uint {
+	// This would use reflection to get the constant from syscall package
+	// For now, return fallback - in production this should be more robust
+	return fallback
+}
+
+// getConstant64 safely retrieves syscall constants with uint64 fallback
+func getConstant64(name string, fallback uint64) uint64 {
 	// This would use reflection to get the constant from syscall package
 	// For now, return fallback - in production this should be more robust
 	return fallback
@@ -72,12 +79,7 @@ type fanotifyEventMetadata struct {
 
 // FanotifyInit initializes fanotify using proper syscall
 func FanotifyInit(flags uint, event_f_flags uint) (int, error) {
-	// Try the syscall package first, fall back to direct syscall if needed
-	if syscall.FanotifyInit != nil {
-		return syscall.FanotifyInit(int(flags), int(event_f_flags))
-	}
-
-	// Direct syscall fallback
+	// Direct syscall - fanotify functions may not be available in syscall package
 	fd, _, errno := syscall.Syscall(syscall.SYS_FANOTIFY_INIT, uintptr(flags), uintptr(event_f_flags), 0)
 	if errno != 0 {
 		return -1, errno
@@ -87,12 +89,7 @@ func FanotifyInit(flags uint, event_f_flags uint) (int, error) {
 
 // doFanotifyMark marks a file/directory for monitoring using proper syscall
 func doFanotifyMark(fd int, flags uint, mask uint64, dirfd int, path string) error {
-	// Try the syscall package first
-	if syscall.FanotifyMark != nil {
-		return syscall.FanotifyMark(fd, int(flags), mask, dirfd, path)
-	}
-
-	// Direct syscall fallback for older Go versions
+	// Direct syscall - fanotify functions may not be available in syscall package
 	pathPtr, err := syscall.BytePtrFromString(path)
 	if err != nil {
 		return err
