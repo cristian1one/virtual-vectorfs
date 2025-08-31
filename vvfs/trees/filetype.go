@@ -169,7 +169,7 @@ func (n *FileTypeNode) Validate() error {
 func (tree *FileTypeTree) PopulateFileTypes(fileTypeRules map[string][]string) {
 	for path, extensions := range fileTypeRules {
 		tree.addDirectPath(path, extensions)
-		slog.Debug(fmt.Sprintf("Added path: %s with extensions: %v", path, extensions))
+		slog.Debug("Added path with extensions", "path", path, "extensions", extensions)
 	}
 }
 
@@ -186,7 +186,7 @@ func (tree *FileTypeTree) addDirectPath(path string, extensions []string) {
 		}
 
 		// Check the case of the directory name
-		slog.Debug(fmt.Sprintf("Adding directory: %s", dir))
+		slog.Debug("Adding directory", "path", dir)
 
 		// Look for an existing child node with the same name
 		var next *FileTypeNode

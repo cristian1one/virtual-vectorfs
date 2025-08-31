@@ -3,6 +3,7 @@ package trees
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -47,6 +48,7 @@ func NewDirectoryNode(path string, parent *DirectoryNode) *DirectoryNode {
 		nodeType = parent.Type
 	}
 
+	now := time.Now()
 	return &DirectoryNode{
 		ID:       uuid.NewString(),
 		Path:     path,
@@ -54,7 +56,15 @@ func NewDirectoryNode(path string, parent *DirectoryNode) *DirectoryNode {
 		Parent:   parent,
 		Children: []*DirectoryNode{},
 		Files:    []*FileNode{},
-		Metadata: Metadata{},
+		Metadata: Metadata{
+			Size:        4096, // Default directory size
+			ModifiedAt:  now,
+			CreatedAt:   now,
+			NodeType:    nodeType,
+			Permissions: 0o755,
+			Owner:       "system", // Default owner
+			Tags:        []string{},
+		},
 	}
 }
 

@@ -76,7 +76,7 @@ func (c *CentralDBProvider) init() error {
 
 // AddWorkspace adds a new workspace to the central database and returns its ID.
 func (c *CentralDBProvider) AddWorkspace(rootPath, config string) (*Workspace, error) {
-	slog.Debug(fmt.Sprintf("Adding workspace with root path %s\n", rootPath))
+	slog.Debug("Adding workspace", "root_path", rootPath)
 
 	tx, err := c.db.Begin()
 	if err != nil {

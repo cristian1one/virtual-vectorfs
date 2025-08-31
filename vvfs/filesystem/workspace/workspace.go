@@ -34,16 +34,16 @@ func createWorkspacePath(rootPath string) string {
 
 // CreateWorkspace creates a new workspace, adding it to the central DB and initializing its own DB
 func (wm *Manager) CreateWorkspace(rootPath, config string) (uuid.UUID, error) {
-	slog.Debug(fmt.Sprintf("Creating workspace at path: %s\n", rootPath))
+	slog.Debug("Creating workspace at path", "path", rootPath)
 
 	rootPath = createWorkspacePath(rootPath)
 
-	slog.Debug(fmt.Sprintf("Workspace path: %s\n", rootPath))
+	slog.Debug("Workspace path", "path", rootPath)
 
 	// mkdirall to check if the directory exists, if not create it
 	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(rootPath, 0o755); err != nil {
-			slog.Error(fmt.Sprintf("Error creating directory at %s", rootPath), "error", err)
+			slog.Error("Error creating directory", "path", rootPath, "error", err)
 			// Decide if this should be a fatal error or if logging is sufficient.
 			// For now, logging and continuing, but this might need to return an error.
 		}
@@ -55,13 +55,13 @@ func (wm *Manager) CreateWorkspace(rootPath, config string) (uuid.UUID, error) {
 	if _, err := os.Stat(ignoreFilePath); os.IsNotExist(err) {
 		ignoreFile, createErr := os.Create(ignoreFilePath)
 		if createErr != nil {
-			slog.Error(fmt.Sprintf("Error creating ignore file at %s", ignoreFilePath), "error", createErr)
+			slog.Error("Error creating ignore file", "path", ignoreFilePath, "error", createErr)
 			// return uuid.Nil, fmt.Errorf("failed to create ignore file: %w", createErr) // Consider returning error
 		} else {
 			defer ignoreFile.Close()
 			// Add the `.git` folder to the ignore file
 			if _, writeErr := ignoreFile.WriteString(".git\n"); writeErr != nil {
-				slog.Error(fmt.Sprintf("Error writing to ignore file at %s", ignoreFilePath), "error", writeErr)
+				slog.Error("Error writing to ignore file", "path", ignoreFilePath, "error", writeErr)
 			}
 		}
 	}
@@ -80,7 +80,7 @@ func (wm *Manager) CreateWorkspace(rootPath, config string) (uuid.UUID, error) {
 
 	workspaceID := workspace.ID
 
-	slog.Debug(fmt.Sprintf("Workspace created with ID: %s at path: %s\n", workspaceID, rootPath))
+	slog.Debug("Workspace created", "id", workspaceID, "path", rootPath)
 	return workspaceID, nil
 }
 
@@ -99,7 +99,7 @@ func (wm *Manager) UpdateWorkspace(workspaceID uuid.UUID, newConfig string) erro
 	if err != nil {
 		return fmt.Errorf("failed to update workspace configuration: %v", err)
 	}
-	slog.Debug(fmt.Sprintf("Workspace with ID %s updated.\n", workspaceID))
+	slog.Debug("Workspace updated", "id", workspaceID)
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (wm *Manager) DeleteWorkspace(workspaceID uuid.UUID) error {
 	if err := os.Remove(workspaceDBPath); err != nil {
 		return fmt.Errorf("failed to delete workspace DB file: %v", err)
 	}
-	slog.Debug(fmt.Sprintf("Workspace with ID %s deleted.\n", workspaceID))
+	slog.Debug("Workspace deleted", "id", workspaceID)
 	return nil
 }
 

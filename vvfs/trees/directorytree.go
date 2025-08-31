@@ -178,12 +178,22 @@ func (tree *DirectoryTree) AddDirectory(path string) (*DirectoryNode, error) {
 		}
 		if !found {
 			// Create missing directories in path with full-path semantics
+			now := time.Now()
 			newDir := &DirectoryNode{
 				Path:     candidateFull,
 				Type:     Directory,
 				Parent:   node,
 				Children: []*DirectoryNode{},
 				Files:    []*FileNode{},
+				Metadata: Metadata{
+					Size:        4096, // Default directory size
+					ModifiedAt:  now,
+					CreatedAt:   now,
+					NodeType:    Directory,
+					Permissions: 0o755,
+					Owner:       "system", // Default owner
+					Tags:        []string{},
+				},
 			}
 			node.Children = append(node.Children, newDir)
 

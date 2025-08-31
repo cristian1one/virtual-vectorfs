@@ -1,7 +1,6 @@
 package trees
 
 import (
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -186,7 +185,7 @@ func (tree *DirectoryTree) InsertNodeToKDTree(node *DirectoryNode) {
 	// Create a DirectoryPoint from node metadata and add it to the collection
 	metadataPoint, err := node.Metadata.ToKDTreePoint()
 	if err != nil {
-		slog.Error(fmt.Sprintf("Error converting metadata to KDTree point: %v", err))
+		slog.Error("Error converting metadata to KDTree point", "error", err)
 		return
 	}
 
@@ -283,7 +282,7 @@ func (tree *DirectoryTree) collectDirectoryPoints(node *DirectoryNode) {
 
 	metadataPoint, err := node.Metadata.ToKDTreePoint()
 	if err != nil {
-		slog.Error(fmt.Sprintf("Error converting metadata to KDTree point: %v", err))
+		slog.Error("Error converting metadata to KDTree point", "error", err)
 		return
 	}
 
@@ -303,9 +302,7 @@ func (tree *DirectoryTree) collectDirectoryPoints(node *DirectoryNode) {
 // FlushPendingKDTreeUpdates forces processing of all pending KD-Tree insertions
 // This is useful before performing searches or when shutting down
 func (tree *DirectoryTree) FlushPendingKDTreeUpdates() {
-	tree.mu.Lock()
-	defer tree.mu.Unlock()
-
+	// BuildKDTreeIncremental already acquires the tree lock, so we don't need to acquire it here
 	tree.BuildKDTreeIncremental()
 
 	slog.Debug("KD-Tree pending updates flushed",

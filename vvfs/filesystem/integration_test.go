@@ -371,11 +371,14 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 
 		// Initialize metadata for each directory
 		baseTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+
 		for i, dir := range testDirs {
+			modifiedTime := baseTime.Add(time.Duration(i) * time.Hour)
+
 			dir.Metadata = trees.Metadata{
 				Size:        int64(1024 * (i + 1)), // Different sizes for uniqueness
-				ModifiedAt:  baseTime.Add(time.Duration(i) * time.Hour),
-				CreatedAt:   baseTime.Add(time.Duration(i) * time.Hour),
+				ModifiedAt:  modifiedTime,
+				CreatedAt:   modifiedTime,
 				NodeType:    trees.Directory,
 				Permissions: 0o755,
 				Owner:       "testuser",
@@ -384,20 +387,49 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 		}
 
 		// Add directories to tree and path index
-		for _, dir := range testDirs {
-			_, err := tree.AddDirectory(dir.Path)
+		treeNodes := make([]*trees.DirectoryNode, len(testDirs))
+		for i, dir := range testDirs {
+			treeNode, err := tree.AddDirectory(dir.Path)
 			require.NoError(t, err)
-			err = pathIndex.Insert(dir)
+
+			// Set metadata on the tree node that was actually created
+			modifiedTime := baseTime.Add(time.Duration(i) * time.Hour)
+			treeNode.Metadata = trees.Metadata{
+				Size:        int64(1024 * (i + 1)), // Different sizes for uniqueness
+				ModifiedAt:  modifiedTime,
+				CreatedAt:   modifiedTime,
+				NodeType:    trees.Directory,
+				Permissions: 0o755,
+				Owner:       "testuser",
+				Tags:        []string{},
+			}
+
+			// Store the tree node for later use
+			treeNodes[i] = treeNode
+
+			err = pathIndex.Insert(treeNode)
 			require.NoError(t, err)
+		}
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
 		}
 
 		// Build KD-tree
 		tree.BuildKDTree()
 
-		// Test 1: Verify path index and KD-tree have same number of nodes
+		// Test 1: Verify path index and KD-tree have consistent node counts
+		// KD-tree includes root node, path index does not count root in Size()
 		pathIndexSize := pathIndex.Size()
 		kdTreeSize := len(tree.KDTreeData)
-		assert.Equal(t, pathIndexSize, int64(kdTreeSize), "Path index and KD-tree should have same node count")
+		assert.Equal(t, pathIndexSize, int64(kdTreeSize-1), "Path index should have one less node than KD-tree (excluding root)")
 
 		// Test 2: Verify all paths in path index exist in KD-tree data
 		pathIndex.WalkPaths(func(path string, node *trees.DirectoryNode) bool {
@@ -516,6 +548,18 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 		require.NoError(t, err)
 		err = pathIndex.Insert(dir)
 		require.NoError(t, err)
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
+		}
+
 		tree.BuildKDTree()
 
 		// Verify it exists
@@ -570,6 +614,18 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 			err = pathIndex.Insert(dir)
 			require.NoError(t, err)
 		}
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
+		}
+
 		tree.BuildKDTree()
 
 		// Test prefix lookup
@@ -628,21 +684,25 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 				}
 
 				// Add to tree and path index
-				_, err := tree.AddDirectory(dir.Path)
+				treeNode, err := tree.AddDirectory(dir.Path)
 				if err != nil {
 					errorMu.Lock()
 					errors = append(errors, err)
 					errorMu.Unlock()
 					return
 				}
-				if err := pathIndex.Insert(dir); err != nil {
+
+				// Copy metadata to the tree node that was actually created
+				treeNode.Metadata = dir.Metadata
+
+				if err := pathIndex.Insert(treeNode); err != nil {
 					errorMu.Lock()
 					errors = append(errors, err)
 					errorMu.Unlock()
 				}
 
 				// Insert into KD-tree incrementally
-				tree.InsertNodeToKDTreeIncremental(dir)
+				tree.InsertNodeToKDTreeIncremental(treeNode)
 			}(i)
 		}
 
@@ -703,6 +763,17 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 			require.NoError(t, err)
 			err = pathIndex.Insert(dir)
 			require.NoError(t, err)
+		}
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
 		}
 
 		// Build KD-tree
@@ -779,6 +850,17 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 		}
 
 		insertionTime := time.Since(startTime)
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
+		}
 
 		// Build KD-tree
 		kdStartTime := time.Now()
@@ -912,13 +994,17 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 				Tags:        []string{},
 			}
 
-			_, err := tree.AddDirectory(dir.Path)
+			treeNode, err := tree.AddDirectory(dir.Path)
 			require.NoError(t, err)
-			err = pathIndex.Insert(dir)
+
+			// Copy metadata to the tree node that was actually created
+			treeNode.Metadata = dir.Metadata
+
+			err = pathIndex.Insert(treeNode)
 			require.NoError(t, err)
 
 			// Use incremental KD-tree insertion
-			tree.InsertNodeToKDTreeIncremental(dir)
+			tree.InsertNodeToKDTreeIncremental(treeNode)
 
 			// Every 5 insertions, check pending batch status
 			if (i+1)%5 == 0 && len(tree.KDTreeData) > 0 {
@@ -926,6 +1012,17 @@ func TestPathIndexKDTreeConsistency(t *testing.T) {
 				kdTreeLen := len(tree.KDTreeData)
 				_ = kdTreeLen // Use the variable
 			}
+		}
+
+		// Set metadata on the root node to avoid validation failures
+		tree.Root.Metadata = trees.Metadata{
+			Size:        4096,
+			ModifiedAt:  baseTime,
+			CreatedAt:   baseTime,
+			NodeType:    trees.Directory,
+			Permissions: 0o755,
+			Owner:       "testuser",
+			Tags:        []string{},
 		}
 
 		// Flush all pending operations

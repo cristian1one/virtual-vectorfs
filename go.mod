@@ -6,8 +6,8 @@ require (
 	github.com/RoaringBitmap/roaring v1.9.4
 	github.com/ZanzyTHEbar/assert-lib v1.3.1
 	github.com/armon/go-radix v1.0.0
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/uuid v1.6.0
-	github.com/hanwen/go-fuse/v2 v2.5.1
 	github.com/rs/zerolog v1.34.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -25,7 +25,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.12.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/libsql/sqlite-antlr4-parser v0.0.0-20240327125255-dbf53b6cbf06 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

@@ -237,7 +237,24 @@ func (ct *ConcurrentTraverser) processDirectoryNode(ctx context.Context, dirNode
 		}
 
 		if entry.IsDir() {
-			childDir := trees.NewDirectoryNode(childPath, dirNode)
+			// For directories, create minimal metadata without syscall
+			now := time.Now()
+			childDir := &trees.DirectoryNode{
+				Path:     childPath,
+				Type:     trees.Directory,
+				Parent:   dirNode,
+				Children: []*trees.DirectoryNode{},
+				Files:    []*trees.FileNode{},
+				Metadata: trees.Metadata{
+					Size:        4096, // Default directory size
+					ModifiedAt:  now,
+					CreatedAt:   now,
+					NodeType:    trees.Directory,
+					Permissions: 0o755,
+					Owner:       "system", // Default owner
+					Tags:        []string{},
+				},
+			}
 			children = append(children, childDir)
 			dirNode.Children = append(dirNode.Children, childDir)
 
@@ -248,6 +265,7 @@ func (ct *ConcurrentTraverser) processDirectoryNode(ctx context.Context, dirNode
 					"error", err)
 			}
 		} else {
+			// For files, we need full metadata so syscall is necessary
 			entryInfo, err := entry.Info()
 			if err != nil {
 				slog.Warn("Error getting file info",
