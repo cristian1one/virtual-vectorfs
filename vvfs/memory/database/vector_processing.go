@@ -79,27 +79,39 @@ func coerceToFloat32Slice(value interface{}) ([]float32, bool, error) {
 		return out, true, nil
 	case []float64:
 		out := make([]float32, len(v))
-		for i, n := range v { out[i] = float32(n) }
+		for i, n := range v {
+			out[i] = float32(n)
+		}
 		return out, true, nil
 	case []int:
 		out := make([]float32, len(v))
-		for i, n := range v { out[i] = float32(n) }
+		for i, n := range v {
+			out[i] = float32(n)
+		}
 		return out, true, nil
 	case []int64:
 		out := make([]float32, len(v))
-		for i, n := range v { out[i] = float32(n) }
+		for i, n := range v {
+			out[i] = float32(n)
+		}
 		return out, true, nil
 	case []interface{}:
 		out := make([]float32, len(v))
 		for i, elem := range v {
 			switch n := elem.(type) {
-			case float64: out[i] = float32(n)
-			case float32: out[i] = n
-			case int: out[i] = float32(n)
-			case int64: out[i] = float32(n)
+			case float64:
+				out[i] = float32(n)
+			case float32:
+				out[i] = n
+			case int:
+				out[i] = float32(n)
+			case int64:
+				out[i] = float32(n)
 			case string:
 				f, err := strconv.ParseFloat(n, 64)
-				if err != nil { return nil, false, fmt.Errorf("invalid numeric string at %d: %v", i, err) }
+				if err != nil {
+					return nil, false, fmt.Errorf("invalid numeric string at %d: %v", i, err)
+				}
 				out[i] = float32(f)
 			default:
 				return nil, false, fmt.Errorf("unsupported vector element type at %d: %T", i, elem)
@@ -115,13 +127,19 @@ func coerceToFloat32Slice(value interface{}) ([]float32, bool, error) {
 		for i := 0; i < n; i++ {
 			el := rv.Index(i).Interface()
 			switch x := el.(type) {
-			case float64: out[i] = float32(x)
-			case float32: out[i] = x
-			case int: out[i] = float32(x)
-			case int64: out[i] = float32(x)
+			case float64:
+				out[i] = float32(x)
+			case float32:
+				out[i] = x
+			case int:
+				out[i] = float32(x)
+			case int64:
+				out[i] = float32(x)
 			case string:
 				f, err := strconv.ParseFloat(x, 64)
-				if err != nil { return nil, false, fmt.Errorf("invalid numeric string at %d: %v", i, err) }
+				if err != nil {
+					return nil, false, fmt.Errorf("invalid numeric string at %d: %v", i, err)
+				}
 				out[i] = float32(f)
 			default:
 				return nil, false, fmt.Errorf("unsupported element type at %d: %T", i, el)
@@ -132,5 +150,3 @@ func coerceToFloat32Slice(value interface{}) ([]float32, bool, error) {
 
 	return nil, false, nil
 }
-
-

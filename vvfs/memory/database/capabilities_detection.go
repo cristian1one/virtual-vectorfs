@@ -14,7 +14,7 @@ type capFlags struct {
 	fts5       bool
 }
 
-// detectCapabilities probes presence of vector_top_k and FTS5 flags.
+// detectCapabilitiesForProject probes presence of vector_top_k and FTS5 flags.
 func (dm *DBManager) detectCapabilitiesForProject(ctx context.Context, projectName string, db *sql.DB) {
 	dm.capMu.RLock()
 	caps, ok := dm.capsByProject[projectName]

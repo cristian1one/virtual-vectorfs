@@ -1,3 +1,4 @@
+// Package database implements the core database operations with sqlc + goose
 package database
 
 import (
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/tursodatabase/go-libsql"
@@ -17,16 +19,30 @@ import (
 
 const defaultProject = "default"
 
-// NewDBManager creates a new database manager
+// DBManager handles all database operations with sqlc integration
+type DBManager struct {
+	config        *Config
+	dbs           map[string]*sql.DB
+	mu            sync.RWMutex
+	stmtCache     map[string]map[string]*sql.Stmt
+	stmtMu        sync.RWMutex
+	capsByProject map[string]capFlags
+	capMu         sync.RWMutex        // mutex for capabilities
+	queries       map[string]*Queries // sqlc generated queriers
+}
+
+// NewDBManager creates a new database manager with sqlc integration
 func NewDBManager(config *Config) (*DBManager, error) {
 	if config.EmbeddingDims <= 0 || config.EmbeddingDims > 65536 {
 		return nil, fmt.Errorf("EMBEDDING_DIMS must be between 1 and 65536 inclusive: %d", config.EmbeddingDims)
 	}
+
 	manager := &DBManager{
 		config:        config,
 		dbs:           make(map[string]*sql.DB),
 		stmtCache:     make(map[string]map[string]*sql.Stmt),
 		capsByProject: make(map[string]capFlags),
+		queries:       make(map[string]*Queries),
 	}
 
 	// initialize default DB in single-project mode
@@ -35,7 +51,31 @@ func NewDBManager(config *Config) (*DBManager, error) {
 			return nil, fmt.Errorf("failed to initialize default database: %w", err)
 		}
 	}
+
 	return manager, nil
+}
+
+// Close closes all cached prepared statements and DBs.
+func (dm *DBManager) Close() error {
+	// close statements
+	dm.stmtMu.Lock()
+	for _, cache := range dm.stmtCache {
+		for _, stmt := range cache {
+			_ = stmt.Close()
+		}
+	}
+	dm.stmtCache = make(map[string]map[string]*sql.Stmt)
+	dm.stmtMu.Unlock()
+
+	// close dbs
+	dm.mu.Lock()
+	for name, db := range dm.dbs {
+		_ = db.Close()
+		delete(dm.dbs, name)
+	}
+	dm.mu.Unlock()
+
+	return nil
 }
 
 // getDB retrieves or creates a DB connection for a project
@@ -59,7 +99,7 @@ func (dm *DBManager) getDB(projectName string) (*sql.DB, error) {
 			return nil, fmt.Errorf("project name cannot be empty in multi-project mode")
 		}
 		dbPath := filepath.Join(dm.config.ProjectsDir, projectName, "libsql.db")
-		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create project directory for %s: %w", projectName, err)
 		}
 		dbURL = fmt.Sprintf("file:%s", dbPath)
@@ -125,6 +165,10 @@ func (dm *DBManager) getDB(projectName string) (*sql.DB, error) {
 
 	// detect caps
 	dm.detectCapabilitiesForProject(context.Background(), projectName, newDb)
+
+	// initialize sqlc querier
+	dm.queries[projectName] = New(newDb)
+
 	_ = newDb.Stats() // touch stats (future metrics)
 	return newDb, nil
 }
@@ -155,24 +199,53 @@ func detectDBEmbeddingDims(db *sql.DB) int {
 	return 0
 }
 
-// initialize creates schema
+// initialize creates schema using goose
 func (dm *DBManager) initialize(db *sql.DB) error {
-	tx, err := db.BeginTx(context.Background(), nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction for initialization: %w", err)
-	}
-	defer tx.Rollback()
-	for _, statement := range dynamicSchema(dm.config.EmbeddingDims) {
-		if _, err := tx.Exec(statement); err != nil {
-			return fmt.Errorf("failed to execute schema statement: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	// Try to set up FTS triggers/table if module exists (best-effort)
-	_ = dm.ensureFTSSchema(context.Background(), db)
+	// For now, rely on goose migrations for schema initialization
+	// This will be called after goose has run migrations
 	return nil
 }
 
+// getPreparedStmt returns or prepares and caches a statement for the given project DB
+func (dm *DBManager) getPreparedStmt(ctx context.Context, projectName string, db *sql.DB, sqlText string) (*sql.Stmt, error) {
+	// fast path read
+	dm.stmtMu.RLock()
+	if projCache, ok := dm.stmtCache[projectName]; ok {
+		if stmt, ok2 := projCache[sqlText]; ok2 {
+			dm.stmtMu.RUnlock()
+			return stmt, nil
+		}
+	}
+	dm.stmtMu.RUnlock()
 
+	// prepare and store
+	stmt, err := db.PrepareContext(ctx, sqlText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	dm.stmtMu.Lock()
+	if _, ok := dm.stmtCache[projectName]; !ok {
+		dm.stmtCache[projectName] = make(map[string]*sql.Stmt)
+	}
+	dm.stmtCache[projectName][sqlText] = stmt
+	dm.stmtMu.Unlock()
+	return stmt, nil
+}
+
+// GetQuerier returns the sqlc querier for a project
+func (dm *DBManager) GetQuerier(projectName string) (*Queries, error) {
+	dm.mu.RLock()
+	querier, ok := dm.queries[projectName]
+	dm.mu.RUnlock()
+	if !ok {
+		// Try to get DB to initialize querier
+		_, err := dm.getDB(projectName)
+		if err != nil {
+			return nil, err
+		}
+		dm.mu.RLock()
+		querier = dm.queries[projectName]
+		dm.mu.RUnlock()
+	}
+	return querier, nil
+}

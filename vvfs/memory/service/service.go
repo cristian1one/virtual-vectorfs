@@ -54,6 +54,47 @@ func (s *Service) SearchVector(ctx context.Context, project string, vector []flo
 	return ents, rels, nil
 }
 
+// HybridSearch combines text and vector search with RRF
+func (s *Service) HybridSearch(ctx context.Context, project, query string, vector []float32, limit, offset int) ([]apptype.Entity, []apptype.Relation, error) {
+	ents, err := s.db.HybridSearch(ctx, project, query, vector, limit, offset)
+	if err != nil {
+		return nil, nil, err
+	}
+	rels, err := s.db.GetRelationsForEntities(ctx, project, ents)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ents, rels, nil
+}
+
+// FuzzySearch performs approximate string matching
+func (s *Service) FuzzySearch(ctx context.Context, project, query string, limit, offset int) ([]apptype.Entity, []apptype.Relation, error) {
+	ents, err := s.db.FuzzySearch(ctx, project, query, limit, offset)
+	if err != nil {
+		return nil, nil, err
+	}
+	rels, err := s.db.GetRelationsForEntities(ctx, project, ents)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ents, rels, nil
+}
+
+// AdvancedSearch with multiple filters and ranking
+func (s *Service) AdvancedSearch(ctx context.Context, project string, params database.AdvancedSearchParams) ([]apptype.Entity, []apptype.Relation, error) {
+	ents, err := s.db.AdvancedSearch(ctx, project, params)
+	if err != nil {
+		return nil, nil, err
+	}
+	rels, err := s.db.GetRelationsForEntities(ctx, project, ents)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ents, rels, nil
+}
+
+// AdvancedSearchParams imported from database package
+
 // OpenNodes fetches entities by names and optionally their relations
 func (s *Service) OpenNodes(ctx context.Context, project string, names []string, includeRelations bool) ([]apptype.Entity, []apptype.Relation, error) {
 	ents, err := s.db.GetEntities(ctx, project, names)

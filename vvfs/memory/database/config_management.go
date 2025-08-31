@@ -68,5 +68,3 @@ func NewConfig() *Config {
 		ConnMaxLifeSec: lifeSec,
 	}
 }
-
-
